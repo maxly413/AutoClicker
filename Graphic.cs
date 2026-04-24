@@ -18,41 +18,52 @@ namespace Engine
         public static void DrawText(string text, int posX, int posY, int fontSize, Color color) => Raylib.DrawText(text, posX, posY, fontSize, color);
     }
 
-    public class Button
+public class Button
+{
+    public int _width { get; set; }
+    public int _height { get; set;}
+    public int _posX { get; set; }
+    public int _posY { get; set; }
+    public Color _color { get; set; }
+    public string _text { get; set; } = "";
+
+    public bool Enabled { get; set; } = true;  
+
+    public Button CreateButton(int width, int height, int posX, int posY, Color color, string text = "")
     {
-        public int _width { get; set; }
-        public int _height { get; set;}
-        public int _posX { get; set; }
-        public int _posY { get; set; }
-        public Color _color { get; set; }
-        public string _text { get; set; } = "";
+        _width = width;
+        _height = height;
+        _posX = posX;
+        _posY = posY;
+        _color = color;
+        _text = text;
 
-        public Button CreateButton(int width, int height, int posX, int posY, Color color, string text = "")
-        {
-            _width = width;
-            _height = height;
-            _posX = posX;
-            _posY = posY;
-            _color = color;
-            _text = text;
-
-            return this;
-        }
-
-        public void DrawButton()
-        {
-            Raylib.DrawRectangle(_posX, _posY, _width, _height, _color);
-            Raylib.DrawText(_text, _posX, _posY, _height, Color.Black);
-        }
-
-        public bool IsClicked()
-        {
-            if (Raylib.GetMouseX() >= _posX && Raylib.GetMouseX() <= _posX + _width
-            && Raylib.GetMouseY() >= _posY && Raylib.GetMouseY() <= _posY + _height
-            && Input.IsMouseButtonLeftClicked()) return true;
-            return false;
-        }
+        return this;
     }
+
+    public void DrawButton()
+    {
+        if (!Enabled) return;
+        Color drawColor = Enabled ? _color : new Color(120, 120, 120, 255); // greyed out
+        Color textColor = Enabled ? Color.Black : new Color(50, 50, 50, 255);
+
+        Raylib.DrawRectangle(_posX, _posY, _width, _height, drawColor);
+        Raylib.DrawText(_text, _posX, _posY, _height, textColor);
+    }
+
+    public bool IsClicked()
+    {
+        if (!Enabled) return false;
+
+        if (Raylib.GetMouseX() >= _posX && Raylib.GetMouseX() <= _posX + _width
+        && Raylib.GetMouseY() >= _posY && Raylib.GetMouseY() <= _posY + _height
+        && Input.IsMouseButtonLeftClicked())
+            return true;
+
+        return false;
+    }
+}
+
 
     static class UI
     {
