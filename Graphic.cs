@@ -44,11 +44,9 @@ public class Button
     public void DrawButton()
     {
         if (!Enabled) return;
-        Color drawColor = Enabled ? _color : new Color(120, 120, 120, 255); // greyed out
-        Color textColor = Enabled ? Color.Black : new Color(50, 50, 50, 255);
 
-        Raylib.DrawRectangle(_posX, _posY, _width, _height, drawColor);
-        Raylib.DrawText(_text, _posX, _posY, _height, textColor);
+        Raylib.DrawRectangle(_posX, _posY, _width, _height, _color);
+        Raylib.DrawText(_text, _posX, _posY, _height, Color.Black);
     }
 
     public bool IsClicked()
