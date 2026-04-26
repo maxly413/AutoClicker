@@ -11,7 +11,7 @@ namespace AutoClicker
         public List<Cat> cats = new List<Cat>();
         public List<House> houses = new List<House>();
         public double totalFish = 0;
-        public int MaxCats = 10;
+        public int MaxCats = 0;
         public int MaxHouses = 2;
         public bool holdingCat = false;
     }
@@ -19,7 +19,7 @@ namespace AutoClicker
     class GameState
     {
         // Method for creating and displaying all graphics
-        static void RenderScreen(PlayerData player)
+        static void RenderScreen(PlayerData player, float dt)
         {
             Graphics.BeginDrawing(); // Must begin the drawing as part of Raylib library
 
@@ -29,7 +29,7 @@ namespace AutoClicker
             Graphics.DrawText($"Houses: {player.houses.Count}", 20, 50, 40, Graphics.Gold);
 
             // Draws UI elements such as buttons
-            UI.Draw();
+            UI.Draw(dt);
 
             // Loops through all currently created houses and draws them
             foreach (House house in player.houses)
@@ -68,11 +68,15 @@ namespace AutoClicker
         // This method contains logic for when a house is bought, currently wip
         static void BuyHouse(PlayerData player)
         {
-            if (player.houses.Count == 1) // Checks to see if this is the second house player has bought
+            if (player.houses.Count == 0) // Checks to see if this is the first house player has bought
             {
-                player.MaxCats = 20; // Increases max cats player can hold
-                player.houses.Add(new House()); // Create new house object
-                player.houses[1].pos = new Vector2(430, 140); // Give new house object specific position
+                player.houses.Add(new House { pos = new Vector2(100,200),  width = 200, height = 100 } ); // Create first house
+                player.MaxCats += player.houses[0].Capacity; // Increases max cats player can hold
+            }  
+            else if (player.houses.Count == 1) // Checks to see if this is the second house player has bought
+            {
+                player.houses.Add(new House() {pos = new Vector2(430, 140)}); 
+                player.MaxCats += player.houses[1].Capacity;
             }
             else if (player.houses.Count == 2) // Unused 3rd house
             {
@@ -96,6 +100,10 @@ namespace AutoClicker
                 player.totalFish -= 10; // decrement cost from player's fish
                 UI.buttons[0].Enabled = player.cats.Count < player.MaxCats;
             }
+            else if (player.totalFish >= 10 && player.cats.Count >= player.MaxCats && UI.buttons[0].IsClicked())
+            {
+                UI.temporaryMessages.Add(new TemporaryMessage(new Vector2(500,400), "Not enough houses", 2));
+            }
 
             // Buy house:
             if (player.totalFish >= 10 && // Checks if player has enough fish to cover house cost
@@ -114,7 +122,6 @@ namespace AutoClicker
             float dt; // deltaTime variable, this variable keeps track of how much time has passed between frames (in sec) allowing us to have consistant time across the whole game (e.g. if we want to know if 1 second is passed we'd have to use, see cooldown logic for more details)
 
             PlayerData player = new PlayerData(); // Create player object
-            player.houses.Add(new House { pos = new Vector2(100,200),  width = 200, height = 100 } ); // Create first house
 
             // Create buttons and add to UI static class
             UI.buttons.Add(new Button().CreateButton(100,20,20,400,Graphics.White,"Buy Cat")); 
@@ -130,7 +137,7 @@ namespace AutoClicker
                 // Runs following methdods ever frame
                 HandleInput(player);
                 UpdateCats(dt, player);
-                RenderScreen(player);
+                RenderScreen(player, dt);
             }
             Window.CloseWindow();
         }
