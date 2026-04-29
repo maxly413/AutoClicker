@@ -4,16 +4,15 @@ using Raylib_cs;
 
 namespace AutoClicker
 {
-    public class House
+    public class House : GameObject
     {
-        public Vector2 pos;
         public int width { get; set; } = 200;
         public int height { get; set; } = 100;
         public int Capacity { get; set; } = 10; // Used to check if house hasSpace
-              public List<Cat> Residents { get; set; } = new List<Cat>(); // List of cats inside of house (used to check how many cats are currently inside the house for checking if the house hasSpace)
+        public List<Cat> Residents { get; set; } = new List<Cat>(); // List of cats inside of house (used to check how many cats are currently inside the house for checking if the house hasSpace)
         public bool HasSpace => Residents.Count < Capacity; // => operator (expression-bodied member) means that HasSpace updates every single time you look at it
 
-        public void DrawHouse()
+        public override void Draw()
         {
             Raylib.DrawRectangleLines((int)pos.X, (int)pos.Y, width, height, Graphics.White);
         }

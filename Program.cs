@@ -11,42 +11,51 @@ namespace AutoClicker
         public List<Cat> cats = new List<Cat>();
         public List<House> houses = new List<House>();
         public double totalFish = 0;
-        public int MaxCats = 0;
+        public int MaxCats = 1;
         public int MaxHouses = 2;
         public bool holdingCat = false;
     }
 
     class GameState
     {
-        // Method for creating and displaying all graphics
-        static void RenderScreen(PlayerData player, float dt)
+        static GameObject? GetObjectAtMouse(PlayerData player)
         {
-            Graphics.BeginDrawing(); // Must begin the drawing as part of Raylib library
-
-            // Draw text player variables to show current stats
-            Graphics.DrawText($"Fish: {player.totalFish:F2}", (int)Window.GetCenter().X, 20, 40, Graphics.Gold);
-            Graphics.DrawText($"Cats: {player.cats.Count}", 20,20, 40, Graphics.White);
-            Graphics.DrawText($"Houses: {player.houses.Count}", 20, 50, 40, Graphics.Gold);
-
-            // Draws UI elements such as buttons
-            UI.Draw(dt);
-
-            // Loops through all currently created houses and draws them
-            foreach (House house in player.houses)
+            // Check cats first (because they are smaller/on top)
+            foreach (var cat in player.cats)
             {
-                house.DrawHouse();
+                if (Vector2.Distance(Raylib.GetMousePosition(), cat.pos) < cat.radius)
+                    return cat;
             }
 
-            // Loops through all currently created cats and draws them
-            foreach (Cat cat in player.cats)
-            {
-                cat.DrawCat();
-            }
-
-            Graphics.EndDrawing(); // Must end the drawing as part of Raylib library
+            return null;
         }
 
-        // This creates the clock, window and sets the fps to 60
+        static void RenderScreen(PlayerData player, float dt)
+        {
+            Graphics.BeginDrawing();
+            
+            Graphics.DrawText($"Fish: {player.totalFish:F2}", (int)Window.GetCenter().X, 20, 40, Graphics.Gold);
+            Graphics.DrawText($"Cats: {player.cats.Count} / {player.MaxCats}", 20,20, 40, Graphics.White);
+            Graphics.DrawText($"Houses: {player.houses.Count}", 20, 50, 40, Graphics.Gold);
+
+            
+            UI.Draw(dt);
+           
+            foreach (House house in player.houses)
+            {
+                house.Draw();
+            }
+
+            
+            foreach (Cat cat in player.cats)
+            {
+                cat.Draw();
+            }
+
+            Graphics.EndDrawing(); 
+        }
+
+       
         static void InitializeGame()
         {
             Clock.initClock(); 
@@ -56,48 +65,78 @@ namespace AutoClicker
 
         static void UpdateCats(float dt, PlayerData player)
         {
-            foreach (var cat in player.cats) // Loop though all cats
+            foreach (var cat in player.cats) 
             {
-                if (cat.cooldown.IsReady(dt)) // Calls cooldown function which checks if cooldown is complete, if so it'll return true
-                    player.totalFish += cat.gatherAmount; // Increments fish if the cooldown was complete
-                cat.CatMovement(dt); // Updates the cat's position 
-                cat.PickUpCat(player); // Checks if the player clicks on a cat, if so will check if the cat was released on a house which will assign the cat to that house
+                if (cat.cooldown.IsReady(dt)) 
+                    player.totalFish += cat.gatherAmount; 
+                cat.CatMovement(dt);  
             }
         }
-
-        // This method contains logic for when a house is bought, currently wip
+       
         static void BuyHouse(PlayerData player)
         {
-            if (player.houses.Count == 0) // Checks to see if this is the first house player has bought
+            if (player.houses.Count == 0) 
             {
-                player.houses.Add(new House { pos = new Vector2(100,200),  width = 200, height = 100 } ); // Create first house
-                player.MaxCats += player.houses[0].Capacity; // Increases max cats player can hold
+                player.houses.Add(new House { pos = new Vector2(100,200),  width = 200, height = 100 } ); 
+                player.MaxCats += player.houses[0].Capacity; 
             }  
-            else if (player.houses.Count == 1) // Checks to see if this is the second house player has bought
+            else if (player.houses.Count == 1) 
             {
                 player.houses.Add(new House() {pos = new Vector2(430, 140)}); 
                 player.MaxCats += player.houses[1].Capacity;
             }
-            else if (player.houses.Count == 2) // Unused 3rd house
+            else if (player.houses.Count == 2) 
             {
                 Console.WriteLine("hello");
             }
 
-            UI.buttons[1].Enabled = player.houses.Count < player.MaxHouses; // Disables "buy house" button if player has reached maximum houses
+            UI.buttons[1].Enabled = player.houses.Count < player.MaxHouses; 
         }
 
-        // All player input logic is kept here
+        static void BuyCat(PlayerData player)
+        {
+            Cat newCat = new Cat(1, 0.20f) { pos = new Vector2(400, 300) };
+
+                newCat.OnClickAction = () => { 
+                    if (!player.holdingCat) newCat.PickUpCat(player); 
+                };
+
+                player.cats.Add(newCat);
+        }
+
         static void HandleInput(PlayerData player)
         {
-            if (Input.IsMouseButtonLeftClicked()) player.totalFish += 1.0; // Increments fish if mouse left clicked
+            if (Input.IsMouseButtonLeftClicked() && !player.holdingCat)
+            {
+                player.totalFish += 1;
+
+                // Use your centralized logic to see what is under the mouse
+                GameObject? clickedObject = GetObjectAtMouse(player);
+
+                // "Is the thing I clicked a type of object that signs the IClickable contract?"
+                if (clickedObject is IClickable interactable)
+                {
+                    interactable.OnClick();
+                }
+            }
+
+            if (Raylib.IsMouseButtonReleased(MouseButton.Left))
+            {
+                if (player.holdingCat)
+                {
+                    // Find the cat that is currently picked up
+                    Cat? heldCat = player.cats.Find(c => c.IsPickedUp());
+                    heldCat?.PutDownCat(player);
+                }
+            }
 
             // Buy cat:
-            if (player.totalFish >= 10 && // Checks if player has enough fish to cover cat cost
-                player.cats.Count < player.MaxCats && // Check if player has enough room for cats
-                UI.buttons[0].IsClicked()) //Checks to see if player clicks "buy cat" button
+            if (player.totalFish >= 10 && 
+                player.cats.Count < player.MaxCats && 
+                UI.buttons[0].IsClicked()) 
             {
-                player.cats.Add(new Cat(1, 0.20f) { pos = new Vector2(400,300)}); // If cat is bought create new cat object for player
-                player.totalFish -= 10; // decrement cost from player's fish
+                BuyCat(player);
+                player.totalFish -= 10; 
                 UI.buttons[0].Enabled = player.cats.Count < player.MaxCats;
             }
             else if (player.totalFish >= 10 && player.cats.Count >= player.MaxCats && UI.buttons[0].IsClicked())
@@ -106,35 +145,32 @@ namespace AutoClicker
             }
 
             // Buy house:
-            if (player.totalFish >= 10 && // Checks if player has enough fish to cover house cost
-                player.houses.Count < player.MaxHouses && // Check if player has not reach house limit
-                UI.buttons[1].IsClicked()) //Checks to see if player clicks "buy house" button
+            if (player.totalFish >= 10 && 
+                player.houses.Count < player.MaxHouses && 
+                UI.buttons[1].IsClicked()) 
             {
-                BuyHouse(player); // Calls buy house logic
-                player.totalFish -= 10; // decrement cost from player's fish
+                BuyHouse(player); 
+                player.totalFish -= 10; 
+                UI.buttons[0].Enabled = player.cats.Count < player.MaxCats;
             }
         }
 
         static void Main()
         {
-            InitializeGame(); // Begins clock and opens game window
+            InitializeGame();
 
-            float dt; // deltaTime variable, this variable keeps track of how much time has passed between frames (in sec) allowing us to have consistant time across the whole game (e.g. if we want to know if 1 second is passed we'd have to use, see cooldown logic for more details)
+            float dt; 
+            PlayerData player = new PlayerData(); 
 
-            PlayerData player = new PlayerData(); // Create player object
-
-            // Create buttons and add to UI static class
             UI.buttons.Add(new Button().CreateButton(100,20,20,400,Graphics.White,"Buy Cat")); 
             UI.buttons.Add(new Button().CreateButton(100,20,20,430,Graphics.White,"Buy House"));
 
-            // while loop to check if window exit icon has not been clicked
             while (!Window.WindowShouldClose())
             {
-                dt = Clock.GetDeltaTime(); // update deltaTime to store how much time has passed since last frame
+                dt = Clock.GetDeltaTime(); 
 
                 //Console.WriteLine(Raylib.GetMousePosition()); // Uncomment this to print mouse location X,Y to console
-
-                // Runs following methdods ever frame
+                
                 HandleInput(player);
                 UpdateCats(dt, player);
                 RenderScreen(player, dt);
