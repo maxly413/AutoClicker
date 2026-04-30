@@ -11,19 +11,20 @@ namespace AutoClicker
         public List<Cat> cats = new List<Cat>();
         public List<House> houses = new List<House>();
         public double totalFish = 0;
-        public int MaxCats = 1;
+        public int MaxCats = 0;
         public int MaxHouses = 2;
         public bool holdingCat = false;
     }
 
     class GameState
     {
+        static List<Texture2D> catTextures = new List<Texture2D>();
         static GameObject? GetObjectAtMouse(PlayerData player)
         {
             // Check cats first (because they are smaller/on top)
             foreach (var cat in player.cats)
             {
-                if (Vector2.Distance(Raylib.GetMousePosition(), cat.pos) < cat.radius)
+                if (cat.IsMouseOver())
                     return cat;
             }
 
@@ -34,9 +35,9 @@ namespace AutoClicker
         {
             Graphics.BeginDrawing();
             
-            Graphics.DrawText($"Fish: {player.totalFish:F2}", (int)Window.GetCenter().X, 20, 40, Graphics.Gold);
-            Graphics.DrawText($"Cats: {player.cats.Count} / {player.MaxCats}", 20,20, 40, Graphics.White);
-            Graphics.DrawText($"Houses: {player.houses.Count}", 20, 50, 40, Graphics.Gold);
+            Graphics.DrawText($"Fish: {player.totalFish:F2}", (int)Window.GetCenter().X, 20, 40, Color.Black);
+            Graphics.DrawText($"Cats: {player.cats.Count} / {player.MaxCats}", 20,20, 40, Color.Black);
+            Graphics.DrawText($"Houses: {player.houses.Count}", 20, 50, 40, Color.Black);
 
             
             UI.Draw(dt);
@@ -77,12 +78,12 @@ namespace AutoClicker
         {
             if (player.houses.Count == 0) 
             {
-                player.houses.Add(new House { pos = new Vector2(100,200),  width = 200, height = 100 } ); 
+                player.houses.Add(new House { pos = new Vector2(100,200),  width = 200, height = 100, houseTint = Color.Yellow } ); 
                 player.MaxCats += player.houses[0].Capacity; 
             }  
             else if (player.houses.Count == 1) 
             {
-                player.houses.Add(new House() {pos = new Vector2(430, 140)}); 
+                player.houses.Add(new House() { pos = new Vector2(430, 140), width = 200, height = 100, houseTint = Color.Purple}); 
                 player.MaxCats += player.houses[1].Capacity;
             }
             else if (player.houses.Count == 2) 
@@ -95,7 +96,7 @@ namespace AutoClicker
 
         static void BuyCat(PlayerData player)
         {
-            Cat newCat = new Cat(1, 0.20f) { pos = new Vector2(400, 300) };
+            Cat newCat = new Cat(1, 0.20f, catTextures[0]) { pos = new Vector2(400, 300) };
 
                 newCat.OnClickAction = () => { 
                     if (!player.holdingCat) newCat.PickUpCat(player); 
@@ -108,7 +109,7 @@ namespace AutoClicker
         {
             if (Input.IsMouseButtonLeftClicked() && !player.holdingCat)
             {
-                player.totalFish += 1;
+                player.totalFish += 10;
 
                 // Use your centralized logic to see what is under the mouse
                 GameObject? clickedObject = GetObjectAtMouse(player);
@@ -158,6 +159,7 @@ namespace AutoClicker
         static void Main()
         {
             InitializeGame();
+            catTextures.Add(Raylib.LoadTexture("images/WhiteCat.png"));
 
             float dt; 
             PlayerData player = new PlayerData(); 
@@ -175,6 +177,7 @@ namespace AutoClicker
                 UpdateCats(dt, player);
                 RenderScreen(player, dt);
             }
+            foreach (var t in catTextures) Raylib.UnloadTexture(t);            
             Window.CloseWindow();
         }
     }

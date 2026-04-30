@@ -1,6 +1,7 @@
 using Engine;
 using Raylib_cs;
 using System.Numerics;
+using System.Security;
 
 namespace AutoClicker
 {
@@ -11,24 +12,27 @@ namespace AutoClicker
         float _baseCooldown { get; set; } 
         public Cooldown cooldown { get; set; } 
         public House? house { get; set; } 
-        public int radius = 10; 
-
+        private Texture2D _sprite;
+        private Rectangle _bounds => new Rectangle(pos.X - _sprite.Width / 2, pos.Y - _sprite.Height / 2, _sprite.Width, _sprite.Height);
+        public Color tint = Color.White;
         public bool IsPickedUp() => _pickedUp;
         
         
-        public Cat(float catCooldown, float gatherAmount) 
+        public Cat(float catCooldown, float gatherAmount, Texture2D texture) 
         {
             _baseCooldown = catCooldown;
             cooldown = new Cooldown(catCooldown);
             this.gatherAmount = gatherAmount;
-            this.color = Color.Magenta;
+            _sprite = texture;
         }
 
         void ResetCat()
         {
             gatherAmount = 0.2f;
             cooldown = new Cooldown(_baseCooldown);
-            color = Color.Magenta;
+            if (house != null) house.Residents.Remove(this); 
+            house = null;
+            tint = Color.White;
         }
 
         private bool IsInBoundry(House house)
@@ -43,29 +47,41 @@ namespace AutoClicker
         {
             _pickedUp =  true; 
             player.holdingCat = true; 
-            
-            if (house != null) house.Residents.Remove(this); 
-            house = null;
         }
 
         public void PutDownCat(PlayerData player)
         {
-            _pickedUp =  false;
+            _pickedUp = false;
             player.holdingCat = false;
-            house = null; 
             
+            // Store the old house temporarily
+            House? oldHouse = this.house;
+            this.house = null; 
 
-            foreach (House house in player.houses)
+            foreach (House h in player.houses)
             {
-                if (IsInBoundry(house) && house.HasSpace)
+                if (IsInBoundry(h) && h.HasSpace)
                 {
-                    this.house = house; 
+                    this.house = h; 
                     break; 
                 }
             }
             
-            if (house != null) house.CatInside(this);
-            else ResetCat();
+            if (this.house != null) 
+            {
+                // If we switched houses, remove from the old one!
+                if (oldHouse != null && oldHouse != this.house) 
+                {
+                    oldHouse.Residents.Remove(this);
+                }
+                this.house.CatInside(this);
+            }
+            else 
+            {
+                // If we are in the wild, ResetCat handles the oldHouse removal
+                this.house = oldHouse; // Temporarily put it back so ResetCat can find it
+                ResetCat();
+            }
         }
       
         public void CatMovement(float dt)
@@ -75,30 +91,44 @@ namespace AutoClicker
                 pos = Raylib.GetMousePosition(); 
                 return;
             }
-
+            
             float speed = 50f;
             pos.X += Raylib.GetRandomValue(-1, 1) * speed * dt; 
             pos.Y += Raylib.GetRandomValue(-1, 1) * speed * dt;
 
             if (house != null) 
             {
-                if (pos.X + radius > house.pos.X + house.width) pos.X = house.pos.X + house.width - radius;
-                if (pos.Y + radius > house.pos.Y + house.height) pos.Y = house.pos.Y + house.height - radius;
-                if (pos.X - radius < house.pos.X) pos.X = house.pos.X + radius;
-                if (pos.Y - radius < house.pos.Y) pos.Y = house.pos.Y + radius;
+                // Clamp X (Left and Right walls)
+                // We use Math.Clamp to keep pos.X between (Left Wall + Radius) and (Right Wall - Radius)
+                pos.X = Math.Clamp(pos.X, house.pos.X + _sprite.Width / 2, house.pos.X + house.width - _sprite.Width / 2);
+
+                // Clamp Y (Top and Bottom walls)
+                pos.Y = Math.Clamp(pos.Y, house.pos.Y + _sprite.Height / 2, house.pos.Y + house.height - _sprite.Height / 2);
+            }
+            else 
+            {
+                // Screen Clamping
+                pos.X = Math.Clamp(pos.X, 0 + + _sprite.Width / 2, Raylib.GetScreenWidth() - _sprite.Width / 2);
+                pos.Y = Math.Clamp(pos.Y, 0 + _sprite.Height / 2, Raylib.GetScreenHeight() - _sprite.Height / 2);
             }
         }
         
         public override void Draw()
         {
-            Raylib.DrawEllipse((int)pos.X, (int)pos.Y, radius, radius, color);
-            if (_pickedUp) Graphics.DrawText($"Gather Amount: {gatherAmount}", (int)pos.X - 20, (int)pos.Y - 25, 10, Color.White);
+            // Use the bounds position for drawing so they always stay synced!
+            Raylib.DrawTexture(_sprite, (int)_bounds.X, (int)_bounds.Y, tint);
+            
+            if (_pickedUp) 
+                Graphics.DrawText($"Gather Amount: {gatherAmount}", (int)_bounds.X, (int)_bounds.Y - 15, 10, Color.White);
+                
+            //Raylib.DrawRectangleRec(_bounds, Raylib.Fade(Color.Magenta, 0.3f));
         }
+            
 
         public bool IsMouseOver()
         {
             // Checks if mouse is within the radius of the cat's center
-            return Raylib.CheckCollisionPointCircle(Raylib.GetMousePosition(), pos, radius);
+            return Raylib.CheckCollisionPointRec(Raylib.GetMousePosition(), _bounds);
         }
 
         public Action? OnClickAction;
